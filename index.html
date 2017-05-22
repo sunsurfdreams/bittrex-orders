@@ -1,0 +1,257 @@
+<html>
+<head>
+
+<style>
+
+.red{
+	color: #ffcccc;
+	text-decoration: none;
+}
+
+.green{
+	color: #00ff00;
+	text-decoration: none;
+	font-weight: bold;
+}
+
+.black{
+	color: #000000;
+	text-decoration: none;
+}
+
+.grey{
+	color: #aaaaaa;
+	text-decoration: none;
+}
+
+
+</style>
+
+
+<script
+  src="https://code.jquery.com/jquery-3.2.1.min.js"
+  integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+  crossorigin="anonymous">
+</script>
+
+
+<script language="javascript">
+
+
+//////////
+// Config
+
+
+//full list of markets
+//var markets = ["BTC-ETH", "BTC-XLM", "BTC-XRP", "BTC-RDD", "BTC-DGB", "BTC-ETH", "BTC-DOGE", "BTC-XVG", "BTC-LTC", "BTC-ZEC", "BTC-XEM", "BTC-DASH", "BTC-XLM", "BTC-PIVX", "BTC-BTS", "BTC-XMR", "BTC-STRAT", "BTC-STEEM", "BTC-GNT", "BTC-HMQ", "BTC-ANT", "BTC-GAME", "BTC-FCT", "BTC-XDN", "BTC-BITB", "BTC-WINGS", "BTC-SYS", "BTC-NXT", "BTC-GNO", "BTC-MUSIC", "BTC-ARK", "BTC-EXP"];
+
+
+// higher volume list
+var markets = ["BTC-ETH", "BTC-XLM", "BTC-XRP", "BTC-RDD", "BTC-DGB", "BTC-XVG", "BTC-LTC", "BTC-ZEC", "BTC-XEM", "BTC-DASH", "BTC-PIVX", "BTC-BTS", "BTC-XMR", "BTC-STRAT", "BTC-STEEM", "BTC-GNT", "BTC-NXT", "BTC-GNO"];
+
+
+// percentage above and below the price to look for buys & sells (higher means more buys & sells)
+var perc = 0.01;
+
+// float above which the buy/sell ratio needs to be to open the new tab
+var buyratio = 3;
+
+
+// Internal variables
+
+var index = 0;
+
+var buys = 0;
+var sells = 0;
+
+
+
+
+
+function getBuyOrders(market, perc){
+
+	var buyOrSell = "buy";
+	var url = 'https://bittrex.com/api/v1.1/public/getorderbook?market=' + market + '&type=' + buyOrSell + '&depth=50';
+
+	//console.log(url);
+
+	var highestRate = 0;
+
+	$.getJSON(url, function(data) {
+
+		//get the lowest rate (sell order)
+	    jQuery.each(data.result, function(i, val) {
+
+	  		if(!(isNaN(parseFloat(val.Rate))) )
+	  		{
+	  			
+			  	if(highestRate == 0 || val.Rate > highestRate)
+			  	{
+		  			highestRate = val.Rate;
+		  		}
+		  	}
+
+		});		
+
+		// Check for all rates within % of the highest rate
+		var checkRate = highestRate * (1-perc);
+		checkRate = Number((checkRate).toFixed(8));
+
+		var output = 0;
+	    jQuery.each(data.result, function(i, val) {
+
+	    	if(!(isNaN(parseFloat(val.Rate) )) && val.Rate > checkRate)
+		  	{
+		  		output += val.Quantity;
+		  	}
+		});
+
+	    // round float:
+	    output = Number((output).toFixed(1));
+
+	    buys = output;
+
+		$("#display").append("<div class='grey'>" + market + " : " + buyOrSell + " orders from rate of: " + checkRate + " to " + highestRate + ": "  + output + "</div>");
+
+		//console.log(market + " : " + buyOrSell + " orders from rate of: " + checkRate + " to " + highestRate + ": "  + output);
+	});
+
+}
+
+
+function getSellOrders(market, perc){
+
+	var buyOrSell = "sell";
+	var url = 'https://bittrex.com/api/v1.1/public/getorderbook?market=' + market + '&type=' + buyOrSell + '&depth=50';
+
+	$.getJSON(url, function(data) {
+
+		var output = 0;
+
+		var lowestRate = 0;
+
+		//get the lowest rate (sell order)
+	    jQuery.each(data.result, function(i, val) {
+
+		  	
+			if(!(isNaN(parseFloat(val.Rate))) )
+		  	{
+			  	if(lowestRate == 0 || val.Rate < lowestRate)
+			  	{
+			  		lowestRate = val.Rate;
+			  	}
+			}
+		});		
+
+		// Check for all rates within % of the lowest rate
+		var checkRate = lowestRate * (1 + perc);
+		checkRate = Number((checkRate).toFixed(8));
+
+	    jQuery.each(data.result, function(i, val) {
+		  	if(!(isNaN(parseFloat(val.Rate) )) && val.Rate < checkRate)
+		  	{
+		  		output += val.Quantity;
+		  	}
+		});
+
+	    // round float:
+	    output = Number((output).toFixed(1));
+
+	    sells = output;
+
+	    
+
+		$("#display").append("<div class='grey'>" + market + " : " + buyOrSell + " orders from rate of : " + checkRate + " to " + lowestRate + " : " + output + "</div>");
+
+		calculate(market);
+
+	});
+
+}
+
+
+
+function calculate(market){
+
+	//console.log(market + " buys: " + buys + " vs sells : " + sells + "| buy/sell ratio: " + buys/sells);
+
+	var cls = 'red';
+
+	if(sells > 0 && buys/sells > buyratio)
+	{
+		cls = "green";
+	}
+
+	if(sells > 0 && buys/sells > 1)
+	{
+		cls = "black";
+	}	
+
+
+	$("#display").append("<div><a href='https://bittrex.com/Market/Index?MarketName=" + market + "'  class=" + cls + " target='_newtab'>" + market + " buys: " + buys + " vs sells : " + sells + " (buy/sell ratio: " + buys/sells + ") </div>");
+
+	$("#display").append("<hr/>");
+
+	if(sells > 0 && buys/sells > buyratio)
+	{
+		window.open('https://bittrex.com/Market/Index?MarketName=' + market,'_newtab' + market);
+	}
+
+	// call the next market
+
+	index = index + 1;
+
+	buys = 0;
+	sells = 0;
+
+	if(index < markets.length)
+	{
+		getAllOrders(markets[index]);
+
+		//console.log("reading market : " + markets[index] + " index: " + index);
+	}
+	else
+	{
+		index = 0;
+		var reloadTime = setTimeout(function() {location.reload() }, 5000);
+	}
+
+} 
+
+
+function getAllOrders(market)
+{
+	getBuyOrders(market, perc);
+	var timeout = setTimeout(function() {getSellOrders(market, perc) }, 2000);
+}
+
+
+$( document ).ready(function() {
+	getAllOrders(markets[0]);
+});
+
+
+
+</script>
+
+
+
+</head>
+<body>
+
+
+<div id="display"></div>
+
+
+
+</body>
+
+
+</html>
+
+
+
+
+
+
+
